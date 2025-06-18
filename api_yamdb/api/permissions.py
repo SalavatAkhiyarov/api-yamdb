@@ -4,7 +4,7 @@ from rest_framework.permissions import BasePermission, SAFE_METHODS
 class AdminRole(BasePermission):
 
     def has_permission(self, request, view):
-        return request.user.is_authenticated and request.user.role == 'admin'
+        return request.user.is_authenticated and (request.user.role == 'admin' or request.user.is_superuser)
 
     # Вопрос: можно протестировать вариант без request.user.is_authenticated
     # Возможно наличие роли это уже подтверждение аутентификации
@@ -23,3 +23,4 @@ class IsAuthorModeratorAdminOrReadOnly(BasePermission):
             or request.user.role == 'moderator'
             or request.user.role == 'admin'
         )
+        return request.user.role == 'admin' or request.user.is_superuser

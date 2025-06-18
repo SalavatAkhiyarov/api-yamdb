@@ -19,6 +19,9 @@ class MyUser(AbstractUser):
     role = models.CharField('Роль', max_length=10, blank=True, default='user', choices=ROLE_CHOICES)
     confirmation_code = models.CharField(max_length=20, null=True, blank=True)
 
+    class Meta:
+        ordering = ('role',)
+
 
 User = get_user_model()
 
