@@ -35,7 +35,7 @@ class SignUpSerializer(serializers.Serializer):
         if User.objects.filter(username=value).exists():
             raise serializers.ValidationError('Такой username уже существует')
         return value
-    
+
     def validate_email(self, value):
         if User.objects.filter(email=value).exists():
             raise serializers.ValidationError('Такой email уже зарегистрирован')
@@ -63,6 +63,11 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ('username', 'email', 'first_name', 'last_name', 'role', 'bio')
+
+    def update(self, instance, validated_data):
+        validated_data['username'] = validated_data.get('username', instance.username)
+        validated_data['email'] = validated_data.get('email', instance.email)
+        return super().update(instance, validated_data)
     
     def validate_role(self, value):
         valid_roles = ['user', 'moderator', 'admin']
