@@ -1,14 +1,25 @@
+from datetime import datetime
 
+from rest_framework.exceptions import ValidationError
+from rest_framework import serializers
+from rest_framework.relations import SlugRelatedField
+from django.contrib.auth import get_user_model
+from django.core.mail import send_mail
+from django.core.validators import RegexValidator
 import random
 
 from rest_framework import serializers
-from django.contrib.auth import get_user_model
-from django.core.mail import send_mail
-from rest_framework.exceptions import ValidationError
+from reviews.models import (
+    Category,
+    Genre,
+    Title,
+    ReviewModel,
+    CommentModel
+)
+from rest_framework.validators import UniqueValidator
 from django.core.validators import RegexValidator
-from datetime import datetime
+from django.shortcuts import get_object_or_404
 
-from rest_framework import serializers
 from reviews.models import Category, Genre, Title
 
 User = get_user_model()
@@ -36,20 +47,18 @@ class TokenSerializer(serializers.Serializer):
     confirmation_code = serializers.CharField(max_length=6)
 
     def validate(self, data):
-        username = data.get('username')
-        confirmation_code = data.get('confirmation_code')
-        try:
-            user = User.objects.get(username=username)
-        except User.DoesNotExist:
-            raise serializers.ValidationError('Пользователь с таким username не найден')
-        if user.confirmation_code != confirmation_code:
+        user = get_object_or_404(User, username=data.get('username'))
+        if user.confirmation_code != data.get('confirmation_code'):
             raise serializers.ValidationError('Неверный код подтверждения')
         return data
 
 
 class UserSerializer(serializers.ModelSerializer):
-    username = serializers.CharField(required=False, validators=[RegexValidator(r'^[\w.@+-]+$')])
-    email = serializers.EmailField(required=False)
+    username = serializers.CharField(max_length=150, validators=[RegexValidator(r'^[\w.@+-]+$'), UniqueValidator(queryset=User.objects.all())])
+    email = serializers.EmailField(max_length=254, validators=[UniqueValidator(queryset=User.objects.all())])
+    first_name = serializers.CharField(max_length=150, required=False)
+    last_name = serializers.CharField(max_length=150, required=False)
+    role = serializers.CharField(max_length=10, required=False, default='user')
 
     class Meta:
         model = User
@@ -59,6 +68,12 @@ class UserSerializer(serializers.ModelSerializer):
         validated_data['username'] = validated_data.get('username', instance.username)
         validated_data['email'] = validated_data.get('email', instance.email)
         return super().update(instance, validated_data)
+    
+    def validate_role(self, value):
+        valid_roles = ['user', 'moderator', 'admin']
+        if value not in valid_roles:
+            raise serializers.ValidationError('Некорректная роль пользователя')
+        return value
 
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -108,3 +123,37 @@ class TitleWriteSerializer(serializers.ModelSerializer):
                 'Год выпуска не может быть больше текущего'
             )
         return value
+
+
+class ReviewSerializer(serializers.ModelSerializer):
+    author = SlugRelatedField(slug_field='username', read_only=True)
+
+    class Meta:
+        model = ReviewModel
+        fields = ('id', 'text', 'author', 'score', 'pub_date')
+
+
+class CommentSerializer(serializers.ModelSerializer):
+    author = SlugRelatedField(slug_field='username', read_only=True)
+
+    class Meta:
+        model = CommentModel
+        fields = ('id', 'text', 'author', 'pub_date')
+
+
+# Расчет рейтинга по всем отзывам о Title, добавить в сериализатор Title
+# from django.db.models import Avg
+#
+# class TitleSerializer(serializers.ModelSerializer):
+#     rating = serializers.SerializerMethodField()
+#
+#     class Meta:
+#         model = Title
+#         fields = ('rating',)
+#
+#     def get_rating(self, obj):
+#         reviews = obj.reviews.all()
+#         if not reviews.exists():
+#             return 0
+#         avg = reviews.aggregate(avg=Avg('score'))['avg']
+#         return round(avg)
