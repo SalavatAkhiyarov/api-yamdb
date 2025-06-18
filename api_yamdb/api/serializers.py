@@ -2,7 +2,20 @@ from datetime import datetime
 
 from rest_framework.exceptions import ValidationError
 from rest_framework import serializers
+from rest_framework.relations import SlugRelatedField
 from django.contrib.auth import get_user_model
+from django.core.mail import send_mail
+from django.core.validators import RegexValidator
+import random
+
+from rest_framework import serializers
+from reviews.models import (
+    Category,
+    Genre,
+    Title,
+    ReviewModel,
+    CommentModel
+)
 from rest_framework.validators import UniqueValidator
 from django.core.validators import RegexValidator
 from django.shortcuts import get_object_or_404
@@ -105,3 +118,37 @@ class TitleWriteSerializer(serializers.ModelSerializer):
                 'Год выпуска не может быть больше текущего'
             )
         return value
+
+
+class ReviewSerializer(serializers.ModelSerializer):
+    author = SlugRelatedField(slug_field='username', read_only=True)
+
+    class Meta:
+        model = ReviewModel
+        fields = ('id', 'text', 'author', 'score', 'pub_date')
+
+
+class CommentSerializer(serializers.ModelSerializer):
+    author = SlugRelatedField(slug_field='username', read_only=True)
+
+    class Meta:
+        model = CommentModel
+        fields = ('id', 'text', 'author', 'pub_date')
+
+
+# Расчет рейтинга по всем отзывам о Title, добавить в сериализатор Title
+# from django.db.models import Avg
+#
+# class TitleSerializer(serializers.ModelSerializer):
+#     rating = serializers.SerializerMethodField()
+#
+#     class Meta:
+#         model = Title
+#         fields = ('rating',)
+#
+#     def get_rating(self, obj):
+#         reviews = obj.reviews.all()
+#         if not reviews.exists():
+#             return 0
+#         avg = reviews.aggregate(avg=Avg('score'))['avg']
+#         return round(avg)
