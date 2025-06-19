@@ -113,7 +113,7 @@ class Title(models.Model):
 class Review(models.Model):
     text = models.TextField()
     author = models.ForeignKey(
-        'reviews.MyUser',
+        MyUser,
         on_delete=models.CASCADE,
         related_name='reviews'
     )
@@ -122,11 +122,23 @@ class Review(models.Model):
         on_delete=models.CASCADE,
         related_name='reviews'
     )
-    score = models.IntegerField('Оценка')
+    score = models.IntegerField(
+        'Оценка',
+        validators=[
+            MinValueValidator(1),
+            MaxValueValidator(10)
+        ]
+    )
     pub_date = models.DateTimeField('Дата публикации', auto_now_add=True)
 
     class Meta:
         ordering = ('pub_date',)
+        constraints = [
+            models.UniqueConstraint(
+                fields=['author', 'title'],
+                name='unique-author-title'
+            )
+        ]
 
     def __str__(self):
         return f'{self.text[:25]} ({self.author=})'
@@ -135,7 +147,7 @@ class Review(models.Model):
 class Comment(models.Model):
     text = models.TextField()
     author = models.ForeignKey(
-        'reviews.MyUser',
+        MyUser,
         on_delete=models.CASCADE,
         related_name='comments'
     )
