@@ -11,7 +11,7 @@ from rest_framework.views import APIView
 from rest_framework.exceptions import ValidationError
 from rest_framework import status
 from rest_framework_simplejwt.tokens import AccessToken
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 
 from .serializers import SignUpSerializer, TokenSerializer, UserSerializer
 from .permissions import AdminRole, IsAuthorModeratorAdminOrReadOnly, IsAdminOrReadOnly
@@ -31,15 +31,13 @@ class SignUpView(APIView):
     permission_classes = (AllowAny,)
 
     def post(self, request):
-        serializer = SignUpSerializer(data=request.data)
-        if serializer.is_valid():
-            username = serializer.validated_data['username']
-            email = serializer.validated_data['email']
+        username = request.data.get('username')
+        email = request.data.get('email')        
+        user = User.objects.filter(username=username, email=email).first()
+        if user:
             confirmation_code = str(random.randint(100000, 999999))
-            user, created = User.objects.get_or_create(username=username,email=email)
-            if not created:
-                user.confirmation_code = confirmation_code
-                user.save()
+            user.confirmation_code = confirmation_code
+            user.save()
             send_mail(
                 subject='Код подтверждения',
                 message=f'Ваш код: {confirmation_code}',
@@ -48,6 +46,23 @@ class SignUpView(APIView):
                 fail_silently=False,
             )
             return Response({'email': email, 'username': username}, status=status.HTTP_200_OK)
+        serializer = SignUpSerializer(data=request.data)
+        if serializer.is_valid():
+            confirmation_code = str(random.randint(100000, 999999))
+            user = User.objects.create(
+                username=serializer.validated_data['username'],
+                email=serializer.validated_data['email'],
+                confirmation_code=confirmation_code
+            )
+            user.save()
+            send_mail(
+                subject='Код подтверждения',
+                message=f'Ваш код: {confirmation_code}',
+                from_email='from@example.com',
+                recipient_list=[user.email],
+                fail_silently=False,
+            )
+            return Response({'email': user.email, 'username': user.username}, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -56,22 +71,36 @@ class TokenView(APIView):
 
     def post(self, request):
         serializer = TokenSerializer(data=request.data)
-        if serializer.is_valid():
-            user = get_object_or_404(User, username=serializer.validated_data['username'])
-            if user.confirmation_code != serializer.validated_data['confirmation_code']:
-                return Response({'error': 'Неверный код подтверждения'}, status=status.HTTP_400_BAD_REQUEST)
-            token = AccessToken.for_user(user)
-            return Response({'token': str(token)}, status=status.HTTP_200_OK)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        serializer.is_valid(raise_exception=True)
+        user = User.objects.get(username=serializer.validated_data['username'])
+        token = AccessToken.for_user(user)
+        return Response({'token': str(token)}, status=status.HTTP_200_OK)
 
 
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
-    lookup_field = 'username'
-    permission_classes = (AdminRole,)
+    lookup_field = "username"
+    filter_backends = (filters.SearchFilter,)
+    search_fields = ('username',)
+
+    def get_permissions(self):
+        if self.kwargs.get('username') == 'me':
+            return [IsAuthenticated()]
+        return [AdminRole()]
+
+    def get_object(self):
+        if self.kwargs.get('username') == 'me':
+            return self.request.user
+        return super().get_object()
 
     def create(self, request, *args, **kwargs):
+        username = request.data.get("username")
+        if User.objects.filter(username=username).exists():
+            raise ValidationError(f"Пользователь с username '{username}' уже существует")
+        email = request.data.get("email")
+        if email and User.objects.filter(email=email).exists():
+            raise ValidationError(f"Пользователь с email '{email}' уже существует")
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
             serializer.save()
@@ -79,16 +108,21 @@ class UserViewSet(viewsets.ModelViewSet):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def update(self, request, *args, **kwargs):
-        user = get_object_or_404(User, username=kwargs['username'])
-        if 'username' not in request.data:
-            request.data['username'] = user.username
-        if 'email' not in request.data:
-            request.data['email'] = user.email
+        if request.method == "PUT":
+            return Response({'error': 'Метод PUT не поддерживается'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
+        user = self.get_object()
+        if 'role' in request.data and not request.user.role == 'admin':
+            return Response({'error': 'Изменение роли запрещено'}, status=status.HTTP_400_BAD_REQUEST)
         serializer = self.get_serializer(user, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    def destroy(self, request, *args, **kwargs):
+        if self.kwargs.get("username") == "me":
+            return Response({'error': 'Удаление своей учетной записи запрещено'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
+        return super().destroy(request, *args, **kwargs)
 
 
 class BaseCategoryGenreViewSet(
