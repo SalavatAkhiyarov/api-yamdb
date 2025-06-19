@@ -64,11 +64,6 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = ('username', 'email', 'first_name', 'last_name', 'role', 'bio')
 
-    def update(self, instance, validated_data):
-        validated_data['username'] = validated_data.get('username', instance.username)
-        validated_data['email'] = validated_data.get('email', instance.email)
-        return super().update(instance, validated_data)
-    
     def validate_role(self, value):
         valid_roles = ['user', 'moderator', 'admin']
         if value not in valid_roles:

@@ -125,6 +125,11 @@ class UserViewSet(viewsets.ModelViewSet):
             serializer.save()
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    def destroy(self, request, *args, **kwargs):
+        if self.kwargs.get("username") == "me":
+            return Response({'error': 'Удаление своей учетной записи запрещено'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
+        return super().destroy(request, *args, **kwargs)
 
 
 class BaseCategoryGenreViewSet(
@@ -181,8 +186,4 @@ class TitleViewSet(viewsets.ModelViewSet):
         if self.request.method == 'GET':
             return TitleReadSerializer
         return TitleWriteSerializer
-    
-    def destroy(self, request, *args, **kwargs):
-        if self.kwargs.get("username") == "me":
-            return Response({'error': 'Удаление своей учетной записи запрещено'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
-        return super().destroy(request, *args, **kwargs)
+

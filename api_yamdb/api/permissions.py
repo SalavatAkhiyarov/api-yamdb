@@ -7,13 +7,7 @@ class AdminRole(BasePermission):
         return request.user.is_authenticated and (request.user.role == 'admin' or request.user.is_superuser)
 
     def has_object_permission(self, request, view, obj):
-
-
-    # Вопрос: можно протестировать вариант без request.user.is_authenticated
-    # Возможно наличие роли это уже подтверждение аутентификации
-
-    def has_object_permission(self, request, view, obj):
-        return request.user.role == 'admin'
+        return request.user.role == 'admin' or request.user.is_superuser
 
 
 class IsAuthorModeratorAdminOrReadOnly(BasePermission):
@@ -26,4 +20,3 @@ class IsAuthorModeratorAdminOrReadOnly(BasePermission):
             or request.user.role == 'moderator'
             or request.user.role == 'admin'
         )
-        return request.user.role == 'admin' or request.user.is_superuser
