@@ -2,28 +2,27 @@ import random
 
 from django.contrib.auth import get_user_model
 from django.core.mail import send_mail
-
 from rest_framework import viewsets, filters, mixins
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework.exceptions import ValidationError
 from rest_framework import status
 from rest_framework_simplejwt.tokens import AccessToken
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.exceptions import ValidationError
 from rest_framework import filters
 
-from .serializers import SignUpSerializer, TokenSerializer, UserSerializer
 from .permissions import AdminRole, IsAdminOrReadOnly
 from reviews.models import Category, Genre, Title
 from .serializers import (
     CategorySerializer,
     GenreSerializer,
     TitleReadSerializer,
-    TitleWriteSerializer
+    TitleWriteSerializer,
+    SignUpSerializer,
+    TokenSerializer,
+    UserSerializer
 )
-
 
 User = get_user_model()
 
@@ -33,7 +32,7 @@ class SignUpView(APIView):
 
     def post(self, request):
         username = request.data.get('username')
-        email = request.data.get('email')        
+        email = request.data.get('email')
         user = User.objects.filter(username=username, email=email).first()
         if user:
             confirmation_code = str(random.randint(100000, 999999))
@@ -94,7 +93,7 @@ class TokenView(APIView):
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
-    lookup_field = "username"
+    lookup_field = 'username'
     filter_backends = (filters.SearchFilter,)
     search_fields = ('username',)
 
@@ -109,12 +108,12 @@ class UserViewSet(viewsets.ModelViewSet):
         return super().get_object()
 
     def create(self, request, *args, **kwargs):
-        username = request.data.get("username")
+        username = request.data.get('username')
         if User.objects.filter(username=username).exists():
             raise ValidationError(
                 f"Пользователь с username '{username}' уже существует"
             )
-        email = request.data.get("email")
+        email = request.data.get('email')
         if email and User.objects.filter(email=email).exists():
             raise ValidationError(
                 f"Пользователь с email '{email}' уже существует"
@@ -126,7 +125,7 @@ class UserViewSet(viewsets.ModelViewSet):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def update(self, request, *args, **kwargs):
-        if request.method == "PUT":
+        if request.method == 'PUT':
             return Response(
                 {'error': 'Метод PUT не поддерживается'},
                 status=status.HTTP_405_METHOD_NOT_ALLOWED
@@ -144,7 +143,15 @@ class UserViewSet(viewsets.ModelViewSet):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def destroy(self, request, *args, **kwargs):
-        if self.kwargs.get("username") == "me":
+        if self.kwargs.get('username') == 'me':
+            return Response(
+                {'error': 'Удаление своей учетной записи запрещено'},
+                status=status.HTTP_405_METHOD_NOT_ALLOWED
+            )
+        return super().destroy(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        if self.kwargs.get('username') == 'me':
             return Response(
                 {'error': 'Удаление своей учетной записи запрещено'},
                 status=status.HTTP_405_METHOD_NOT_ALLOWED
@@ -175,7 +182,9 @@ class GenreViewSet(BaseCategoryGenreViewSet):
 
 
 class TitleViewSet(viewsets.ModelViewSet):
-    queryset = Title.objects.select_related('category').prefetch_related('genre')
+    queryset = (
+        Title.objects.select_related('category').prefetch_related('genre')
+    )
     pagination_class = PageNumberPagination
     permission_classes = (IsAdminOrReadOnly,)
     filter_backends = (filters.SearchFilter,)
