@@ -1,9 +1,7 @@
-
 import random
 
 from django.contrib.auth import get_user_model
 from django.core.mail import send_mail
-from django.shortcuts import get_object_or_404
 
 from rest_framework import viewsets, filters, mixins
 from rest_framework.pagination import PageNumberPagination
@@ -17,7 +15,7 @@ from rest_framework.exceptions import ValidationError
 from rest_framework import filters
 
 from .serializers import SignUpSerializer, TokenSerializer, UserSerializer
-from .permissions import AdminRole
+from .permissions import AdminRole, IsAdminOrReadOnly
 from reviews.models import Category, Genre, Title
 from .serializers import (
     CategorySerializer,
@@ -39,7 +37,10 @@ class SignUpView(APIView):
         user = User.objects.filter(username=username, email=email).first()
         if user:
             confirmation_code = str(random.randint(100000, 999999))
-            user, created = User.objects.get_or_create(username=username,email=email)
+            user, created = User.objects.get_or_create(
+                username=username,
+                email=email
+            )
             if not created:
                 user.confirmation_code = confirmation_code
                 user.save()
@@ -52,7 +53,10 @@ class SignUpView(APIView):
                 recipient_list=[email],
                 fail_silently=False,
             )
-            return Response({'email': email, 'username': username}, status=status.HTTP_200_OK)
+            return Response(
+                {'email': email, 'username': username},
+                status=status.HTTP_200_OK
+            )
         serializer = SignUpSerializer(data=request.data)
         if serializer.is_valid():
             confirmation_code = str(random.randint(100000, 999999))
@@ -69,7 +73,10 @@ class SignUpView(APIView):
                 recipient_list=[user.email],
                 fail_silently=False,
             )
-            return Response({'email': user.email, 'username': user.username}, status=status.HTTP_200_OK)
+            return Response(
+                {'email': user.email, 'username': user.username},
+                status=status.HTTP_200_OK
+            )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -104,10 +111,14 @@ class UserViewSet(viewsets.ModelViewSet):
     def create(self, request, *args, **kwargs):
         username = request.data.get("username")
         if User.objects.filter(username=username).exists():
-            raise ValidationError(f"Пользователь с username '{username}' уже существует")
+            raise ValidationError(
+                f"Пользователь с username '{username}' уже существует"
+            )
         email = request.data.get("email")
         if email and User.objects.filter(email=email).exists():
-            raise ValidationError(f"Пользователь с email '{email}' уже существует")
+            raise ValidationError(
+                f"Пользователь с email '{email}' уже существует"
+            )
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
             serializer.save()
@@ -116,15 +127,29 @@ class UserViewSet(viewsets.ModelViewSet):
 
     def update(self, request, *args, **kwargs):
         if request.method == "PUT":
-            return Response({'error': 'Метод PUT не поддерживается'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
+            return Response(
+                {'error': 'Метод PUT не поддерживается'},
+                status=status.HTTP_405_METHOD_NOT_ALLOWED
+            )
         user = self.get_object()
         if 'role' in request.data and not request.user.role == 'admin':
-            return Response({'error': 'Изменение роли запрещено'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {'error': 'Изменение роли запрещено'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
         serializer = self.get_serializer(user, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def destroy(self, request, *args, **kwargs):
+        if self.kwargs.get("username") == "me":
+            return Response(
+                {'error': 'Удаление своей учетной записи запрещено'},
+                status=status.HTTP_405_METHOD_NOT_ALLOWED
+            )
+        return super().destroy(request, *args, **kwargs)
 
 
 class BaseCategoryGenreViewSet(
@@ -133,7 +158,7 @@ class BaseCategoryGenreViewSet(
     mixins.DestroyModelMixin,
     viewsets.GenericViewSet
 ):
-    permission_classes = (AdminRole,)
+    permission_classes = (IsAdminOrReadOnly,)
     filter_backends = (filters.SearchFilter,)
     search_fields = ('name',)
     lookup_field = 'slug'
@@ -150,15 +175,19 @@ class GenreViewSet(BaseCategoryGenreViewSet):
 
 
 class TitleViewSet(viewsets.ModelViewSet):
-    queryset = Title.objects.all()
+    queryset = Title.objects.select_related('category').prefetch_related('genre')
     pagination_class = PageNumberPagination
-    permission_classes = (AdminRole,)
+    permission_classes = (IsAdminOrReadOnly,)
     filter_backends = (filters.SearchFilter,)
     search_fields = ('name',)
+    http_method_names = ['get', 'post', 'patch', 'delete']
 
     def get_queryset(self):
         """Кастомная фильтрация для произведений"""
         queryset = super().get_queryset()
+        name = self.request.query_params.get('name')
+        if name:
+            queryset = queryset.filter(name__icontains=name)
         genre_slug = self.request.query_params.get('genre')
         if genre_slug:
             queryset = queryset.filter(genre__slug=genre_slug)
@@ -181,8 +210,3 @@ class TitleViewSet(viewsets.ModelViewSet):
         if self.request.method == 'GET':
             return TitleReadSerializer
         return TitleWriteSerializer
-    
-    def destroy(self, request, *args, **kwargs):
-        if self.kwargs.get("username") == "me":
-            return Response({'error': 'Удаление своей учетной записи запрещено'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
-        return super().destroy(request, *args, **kwargs)
