@@ -1,4 +1,3 @@
-
 import random
 
 from django.contrib.auth import get_user_model
@@ -15,7 +14,7 @@ from rest_framework_simplejwt.tokens import AccessToken
 from rest_framework.permissions import AllowAny
 
 from .serializers import SignUpSerializer, TokenSerializer, UserSerializer
-from .permissions import AdminRole
+from .permissions import AdminRole, IsAuthorModeratorAdminOrReadOnly, IsAdminOrReadOnly
 from reviews.models import Category, Genre, Title
 from .serializers import (
     CategorySerializer,
@@ -98,7 +97,7 @@ class BaseCategoryGenreViewSet(
     mixins.DestroyModelMixin,
     viewsets.GenericViewSet
 ):
-    permission_classes = (AdminRole,)
+    permission_classes = (IsAdminOrReadOnly,)
     filter_backends = (filters.SearchFilter,)
     search_fields = ('name',)
     lookup_field = 'slug'
@@ -115,15 +114,18 @@ class GenreViewSet(BaseCategoryGenreViewSet):
 
 
 class TitleViewSet(viewsets.ModelViewSet):
-    queryset = Title.objects.all()
+    queryset = Title.objects.select_related('category').prefetch_related('genre')
     pagination_class = PageNumberPagination
-    permission_classes = (AdminRole,)
+    permission_classes = (IsAdminOrReadOnly,)
     filter_backends = (filters.SearchFilter,)
     search_fields = ('name',)
 
     def get_queryset(self):
         """Кастомная фильтрация для произведений"""
         queryset = super().get_queryset()
+        name = self.request.query_params.get('name')
+        if name:
+            queryset = queryset.filter(name__icontains=name)
         genre_slug = self.request.query_params.get('genre')
         if genre_slug:
             queryset = queryset.filter(genre__slug=genre_slug)
@@ -146,3 +148,11 @@ class TitleViewSet(viewsets.ModelViewSet):
         if self.request.method == 'GET':
             return TitleReadSerializer
         return TitleWriteSerializer
+
+    def update(self, request, *args, **kwargs):
+        if request.method == 'PUT':
+            return Response(
+                {'error': 'Метод PUT не поддерживается'},
+                status=status.HTTP_405_METHOD_NOT_ALLOWED
+            )
+        return super().update(request, *args, **kwargs)
