@@ -1,13 +1,13 @@
 from django.contrib import admin
 
-from .models import ReviewModel, CommentModel
+from .models import Review, Comment
 
 
-@admin.register(ReviewModel)
+@admin.register(Review)
 class GroupAdmin(admin.ModelAdmin):
     pass
 
 
-@admin.register(CommentModel)
+@admin.register(Comment)
 class GroupAdmin(admin.ModelAdmin):
     pass

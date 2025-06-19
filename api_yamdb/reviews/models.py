@@ -1,4 +1,3 @@
-from django.contrib.auth import get_user_model
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.core.validators import MinValueValidator, MaxValueValidator
@@ -21,9 +20,6 @@ class MyUser(AbstractUser):
 
     class Meta:
         ordering = ('role',)
-
-
-User = get_user_model()
 
 
 class Category(models.Model):
@@ -114,10 +110,10 @@ class Title(models.Model):
         return self.name
 
 
-class ReviewModel(models.Model):
+class Review(models.Model):
     text = models.TextField()
     author = models.ForeignKey(
-        User,
+        MyUser,
         on_delete=models.CASCADE,
         related_name='reviews'
     )
@@ -126,25 +122,37 @@ class ReviewModel(models.Model):
         on_delete=models.CASCADE,
         related_name='reviews'
     )
-    score = models.IntegerField('Оценка')
+    score = models.IntegerField(
+        'Оценка',
+        validators=[
+            MinValueValidator(1),
+            MaxValueValidator(10)
+        ]
+    )
     pub_date = models.DateTimeField('Дата публикации', auto_now_add=True)
 
     class Meta:
         ordering = ('pub_date',)
+        constraints = [
+            models.UniqueConstraint(
+                fields=['author', 'title'],
+                name='unique-author-title'
+            )
+        ]
 
     def __str__(self):
         return f'{self.text[:25]} ({self.author=})'
 
 
-class CommentModel(models.Model):
+class Comment(models.Model):
     text = models.TextField()
     author = models.ForeignKey(
-        User,
+        MyUser,
         on_delete=models.CASCADE,
         related_name='comments'
     )
     review = models.ForeignKey(
-        ReviewModel,
+        Review,
         related_name='comments',
         on_delete=models.CASCADE
     )
