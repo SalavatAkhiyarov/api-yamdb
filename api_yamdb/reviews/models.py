@@ -97,15 +97,6 @@ class Title(models.Model):
         blank=True,
         verbose_name='Категория'
     )
-    rating = models.PositiveSmallIntegerField(
-        'Рейтинг',
-        null=True,
-        blank=True,
-        validators=[
-            MinValueValidator(1),
-            MaxValueValidator(10)
-        ]
-    )
 
     class Meta:
         verbose_name = 'Произведение'
@@ -117,7 +108,7 @@ class Title(models.Model):
 
 
 class Review(models.Model):
-    text = models.TextField()
+    text = models.TextField('Текст')
     author = models.ForeignKey(
         MyUser,
         on_delete=models.CASCADE,
@@ -145,13 +136,15 @@ class Review(models.Model):
                 name='unique-author-title'
             )
         ]
+        verbose_name = 'Отзыв'
+        verbose_name_plural = 'Отзывы'
 
     def __str__(self):
         return f'{self.text[:25]} ({self.author=})'
 
 
 class Comment(models.Model):
-    text = models.TextField()
+    text = models.TextField('Текст')
     author = models.ForeignKey(
         MyUser,
         on_delete=models.CASCADE,
@@ -166,6 +159,8 @@ class Comment(models.Model):
 
     class Meta:
         ordering = ('pub_date',)
+        verbose_name = 'Комментарий'
+        verbose_name_plural = 'Комментарии'
 
     def __str__(self):
         return f'{self.text[:25]} ({self.author=})'
