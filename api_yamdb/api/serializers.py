@@ -22,7 +22,15 @@ class SignUpSerializer(serializers.Serializer):
     email = serializers.EmailField(max_length=254)
     username = serializers.CharField(
         max_length=150,
-        validators=[RegexValidator(r'^[\w.@+-]+$')]
+        validators=[
+            RegexValidator(
+                r'^[\w.@+-]+$',
+                message=(
+                    'Имя пользователя может содержать только буквы, '
+                    'цифры и символы @/./+/-/_'
+                )
+            )
+        ]
     )
 
     def validate_username(self, value):
@@ -45,7 +53,15 @@ class SignUpSerializer(serializers.Serializer):
 class TokenSerializer(serializers.Serializer):
     username = serializers.CharField(
         max_length=150,
-        validators=[RegexValidator(r'^[\w.@+-]+$')]
+        validators=[
+            RegexValidator(
+                r'^[\w.@+-]+$',
+                message=(
+                    'Имя пользователя может содержать только буквы, '
+                    'цифры и символы @/./+/-/_'
+                )
+            )
+        ]
     )
     confirmation_code = serializers.CharField(max_length=6)
 
@@ -62,7 +78,13 @@ class UserSerializer(serializers.ModelSerializer):
     username = serializers.CharField(
         max_length=150,
         validators=[
-            RegexValidator(r'^[\w.@+-]+$'),
+            RegexValidator(
+                r'^[\w.@+-]+$',
+                message=(
+                    'Имя пользователя может содержать только буквы, '
+                    'цифры и символы @/./+/-/_'
+                )
+            ),
             UniqueValidator(queryset=User.objects.all())
         ]
     )
