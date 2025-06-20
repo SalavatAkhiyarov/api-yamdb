@@ -2,7 +2,7 @@ import csv
 import os
 from datetime import datetime
 
-from django.core.management.base import BaseCommand, CommandError
+from django.core.management.base import BaseCommand
 from django.conf import settings
 
 from reviews.models import Category, Genre, Title, Review, Comment, MyUser
@@ -28,7 +28,8 @@ class Command(BaseCommand):
         # Указываем путь к папке с данными
         data_folder = os.path.join(settings.BASE_DIR, 'static', 'data')
         # Даём порядок загрузки файлов
-        # (важно т.к они зависят друг от друга, т.е. комменты без пользователя загружать нельзя)
+        # (важно т.к они зависят друг от друга,
+        # т.е. комменты без пользователя загружать нельзя)
         load_order = [
             ('users.csv', self.load_users),
             ('category.csv', self.load_categories),
@@ -203,7 +204,7 @@ class Command(BaseCommand):
             reader = csv.DictReader(f)
             for row in reader:
                 pub_date = datetime.strptime(
-                    row['pub_date'], 
+                    row['pub_date'],
                     '%Y-%m-%dT%H:%M:%S.%fZ'
                 )
                 Comment.objects.update_or_create(

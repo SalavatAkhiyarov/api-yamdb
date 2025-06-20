@@ -31,7 +31,7 @@ class GroupAdmin(admin.ModelAdmin):
 
 @admin.register(Comment)
 class GroupAdmin(admin.ModelAdmin):
-  list_display = (
+    list_display = (
         'text',
         'author',
         'review',
@@ -66,6 +66,4 @@ class TitleAdmin(admin.ModelAdmin):
     list_filter = ('category', 'genre', 'year')
 
 
-    
 admin.site.register(MyUser, MyUserAdmin)
-
