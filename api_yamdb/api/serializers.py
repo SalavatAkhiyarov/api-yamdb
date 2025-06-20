@@ -123,7 +123,8 @@ class TitleWriteSerializer(serializers.ModelSerializer):
     genre = serializers.SlugRelatedField(
         slug_field='slug',
         queryset=Genre.objects.all(),
-        many=True
+        many=True,
+        allow_empty=False
     )
     category = serializers.SlugRelatedField(
         slug_field='slug',
@@ -136,6 +137,10 @@ class TitleWriteSerializer(serializers.ModelSerializer):
 
     def validate_year(self, value):
         current_year = datetime.now().year
+        if value < 0:
+            raise serializers.ValidationError(
+                'Год выпуска не может быть отрицательным'
+            )
         if value > current_year:
             raise serializers.ValidationError(
                 'Год выпуска не может быть больше текущего'
