@@ -1,6 +1,5 @@
 from datetime import datetime
 
-from django.db.models import Avg
 from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404
 from rest_framework import serializers
@@ -22,7 +21,15 @@ class SignUpSerializer(serializers.Serializer):
     email = serializers.EmailField(max_length=254)
     username = serializers.CharField(
         max_length=150,
-        validators=[RegexValidator(r'^[\w.@+-]+$')]
+        validators=[
+            RegexValidator(
+                r'^[\w.@+-]+$',
+                message=(
+                    'Имя пользователя может содержать только буквы, '
+                    'цифры и символы @/./+/-/_'
+                )
+            )
+        ]
     )
 
     def validate_username(self, value):
@@ -45,7 +52,15 @@ class SignUpSerializer(serializers.Serializer):
 class TokenSerializer(serializers.Serializer):
     username = serializers.CharField(
         max_length=150,
-        validators=[RegexValidator(r'^[\w.@+-]+$')]
+        validators=[
+            RegexValidator(
+                r'^[\w.@+-]+$',
+                message=(
+                    'Имя пользователя может содержать только буквы, '
+                    'цифры и символы @/./+/-/_'
+                )
+            )
+        ]
     )
     confirmation_code = serializers.CharField(max_length=6)
 
@@ -62,7 +77,13 @@ class UserSerializer(serializers.ModelSerializer):
     username = serializers.CharField(
         max_length=150,
         validators=[
-            RegexValidator(r'^[\w.@+-]+$'),
+            RegexValidator(
+                r'^[\w.@+-]+$',
+                message=(
+                    'Имя пользователя может содержать только буквы, '
+                    'цифры и символы @/./+/-/_'
+                )
+            ),
             UniqueValidator(queryset=User.objects.all())
         ]
     )
@@ -102,7 +123,7 @@ class GenreSerializer(serializers.ModelSerializer):
 class TitleReadSerializer(serializers.ModelSerializer):
     genre = GenreSerializer(many=True, read_only=True)
     category = CategorySerializer(read_only=True)
-    rating = serializers.SerializerMethodField()
+    rating = serializers.IntegerField()
 
     class Meta:
         model = Title
@@ -111,19 +132,13 @@ class TitleReadSerializer(serializers.ModelSerializer):
             'description', 'genre', 'category'
         )
 
-    def get_rating(self, obj):
-        reviews = obj.reviews.all()
-        if not reviews.exists():
-            return None
-        avg = reviews.aggregate(avg=Avg('score'))['avg']
-        return round(avg)
-
 
 class TitleWriteSerializer(serializers.ModelSerializer):
     genre = serializers.SlugRelatedField(
         slug_field='slug',
         queryset=Genre.objects.all(),
-        many=True
+        many=True,
+        allow_empty=False
     )
     category = serializers.SlugRelatedField(
         slug_field='slug',
@@ -136,6 +151,10 @@ class TitleWriteSerializer(serializers.ModelSerializer):
 
     def validate_year(self, value):
         current_year = datetime.now().year
+        if value < 0:
+            raise serializers.ValidationError(
+                'Год выпуска не может быть отрицательным'
+            )
         if value > current_year:
             raise serializers.ValidationError(
                 'Год выпуска не может быть больше текущего'
