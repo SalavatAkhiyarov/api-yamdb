@@ -1,13 +1,11 @@
 from django.contrib import admin
-
-from .models import Review, Comment
-
-
-@admin.register(Review)
-class GroupAdmin(admin.ModelAdmin):
-    pass
+from .models import MyUser
 
 
-@admin.register(Comment)
-class GroupAdmin(admin.ModelAdmin):
-    pass
+class MyUserAdmin(admin.ModelAdmin):
+    list_display = ('email', 'first_name', 'last_name', 'role', 'bio')
+    search_fields = ('email', 'first_name', 'last_name', 'role')
+    list_filter = ('role',)
+
+
+admin.site.register(MyUser, MyUserAdmin)

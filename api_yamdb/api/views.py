@@ -131,24 +131,18 @@ class UserViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_405_METHOD_NOT_ALLOWED
             )
         user = self.get_object()
-        if 'role' in request.data and not request.user.role == 'admin':
-            return Response(
-                {'error': 'Изменение роли запрещено'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        serializer = self.get_serializer(user, data=request.data, partial=True)
+        data = request.data.copy()
+        if self.kwargs.get('username') == 'me':
+            if 'role' in data:
+                data.pop('role')
+        elif 'role' in data:
+            if request.user.role != 'admin':
+                data.pop('role')
+        serializer = self.get_serializer(user, data=data, partial=True)
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    def destroy(self, request, *args, **kwargs):
-        if self.kwargs.get('username') == 'me':
-            return Response(
-                {'error': 'Удаление своей учетной записи запрещено'},
-                status=status.HTTP_405_METHOD_NOT_ALLOWED
-            )
-        return super().destroy(request, *args, **kwargs)
 
     def destroy(self, request, *args, **kwargs):
         if self.kwargs.get('username') == 'me':
