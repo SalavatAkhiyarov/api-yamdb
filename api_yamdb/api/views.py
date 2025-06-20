@@ -2,6 +2,7 @@ import random
 
 from django.contrib.auth import get_user_model
 from django.core.mail import send_mail
+from django.db.models import Avg
 from rest_framework import viewsets, filters, mixins
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
@@ -131,24 +132,18 @@ class UserViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_405_METHOD_NOT_ALLOWED
             )
         user = self.get_object()
-        if 'role' in request.data and not request.user.role == 'admin':
-            return Response(
-                {'error': 'Изменение роли запрещено'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        serializer = self.get_serializer(user, data=request.data, partial=True)
+        data = request.data.copy()
+        if self.kwargs.get('username') == 'me':
+            if 'role' in data:
+                data.pop('role')
+        elif 'role' in data:
+            if request.user.role != 'admin':
+                data.pop('role')
+        serializer = self.get_serializer(user, data=data, partial=True)
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    def destroy(self, request, *args, **kwargs):
-        if self.kwargs.get('username') == 'me':
-            return Response(
-                {'error': 'Удаление своей учетной записи запрещено'},
-                status=status.HTTP_405_METHOD_NOT_ALLOWED
-            )
-        return super().destroy(request, *args, **kwargs)
 
     def destroy(self, request, *args, **kwargs):
         if self.kwargs.get('username') == 'me':
@@ -193,7 +188,9 @@ class TitleViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         """Кастомная фильтрация для произведений"""
-        queryset = super().get_queryset()
+        queryset = super().get_queryset().annotate(
+            rating=Avg('reviews__score')
+        )
         name = self.request.query_params.get('name')
         if name:
             queryset = queryset.filter(name__icontains=name)

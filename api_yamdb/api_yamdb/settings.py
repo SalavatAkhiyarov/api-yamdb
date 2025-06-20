@@ -11,6 +11,7 @@ DEBUG = True
 ALLOWED_HOSTS = ['*']
 
 INSTALLED_APPS = [
+    'reviews.apps.ReviewsConfig',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -20,7 +21,6 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework_simplejwt',
     'api.apps.ApiConfig',
-    'reviews.apps.ReviewsConfig'
 ]
 
 MIDDLEWARE = [
