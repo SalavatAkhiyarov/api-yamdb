@@ -2,6 +2,7 @@ import random
 
 from django.contrib.auth import get_user_model
 from django.core.mail import send_mail
+from django.db.models import Avg
 from rest_framework import viewsets, filters, mixins
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
@@ -187,7 +188,9 @@ class TitleViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         """Кастомная фильтрация для произведений"""
-        queryset = super().get_queryset()
+        queryset = super().get_queryset().annotate(
+            rating=Avg('reviews__score')
+        )
         name = self.request.query_params.get('name')
         if name:
             queryset = queryset.filter(name__icontains=name)
