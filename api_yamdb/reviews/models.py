@@ -75,7 +75,7 @@ class Title(models.Model):
         'Название произведения',
         max_length=256
     )
-    year = models.PositiveSmallIntegerField(
+    year = models.SmallIntegerField(
         'Год выпуска',
         db_index=True
     )
