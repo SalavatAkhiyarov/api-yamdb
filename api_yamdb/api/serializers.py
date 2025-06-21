@@ -150,12 +150,7 @@ class TitleWriteSerializer(serializers.ModelSerializer):
         fields = ('id', 'name', 'year', 'description', 'genre', 'category')
 
     def validate_year(self, value):
-        current_year = datetime.now().year
-        if value < 0:
-            raise serializers.ValidationError(
-                'Год выпуска не может быть отрицательным'
-            )
-        if value > current_year:
+        if value > datetime.now().year:
             raise serializers.ValidationError(
                 'Год выпуска не может быть больше текущего'
             )
