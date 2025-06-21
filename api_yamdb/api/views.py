@@ -210,7 +210,7 @@ class TitleViewSet(viewsets.ModelViewSet):
                 raise ValidationError(
                     {'year': 'year должен быть целым числом'}
                 )
-        return queryset.distinct()
+        return queryset.distinct().order_by('-year', 'name')
 
     def get_serializer_class(self):
         """Выбор сериализатора в зависимости от типа запроса"""

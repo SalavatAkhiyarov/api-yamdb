@@ -44,15 +44,11 @@ class MyUser(AbstractUser):
         verbose_name = 'Пользователь'
         verbose_name_plural = 'Пользователи'
         ordering = ('role',)
-    
+
     def clean(self):
         super().clean()
         if self.username.lower() == 'me':
             raise ValidationError({'username': 'Имя "me" запрещено.'})
-    
-    def save(self, *args, **kwargs):
-        self.full_clean()
-        super().save(*args, **kwargs)
 
 
 class Category(models.Model):
