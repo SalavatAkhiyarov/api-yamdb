@@ -136,9 +136,10 @@ class UserViewSet(viewsets.ModelViewSet):
         if self.kwargs.get('username') == 'me':
             if 'role' in data:
                 data.pop('role')
-        elif 'role' in data:
-            if request.user.role != 'admin':
-                data.pop('role')
+        elif 'role' in data and not (
+            request.user.is_superuser or request.user.role == 'admin'
+        ):
+            data.pop('role')
         serializer = self.get_serializer(user, data=data, partial=True)
         if serializer.is_valid():
             serializer.save()
@@ -209,7 +210,7 @@ class TitleViewSet(viewsets.ModelViewSet):
                 raise ValidationError(
                     {'year': 'year должен быть целым числом'}
                 )
-        return queryset.distinct()
+        return queryset.distinct().order_by('-year', 'name')
 
     def get_serializer_class(self):
         """Выбор сериализатора в зависимости от типа запроса"""
