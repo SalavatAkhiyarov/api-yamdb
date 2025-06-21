@@ -67,8 +67,6 @@ class TokenSerializer(serializers.Serializer):
     def validate(self, data):
         user = get_object_or_404(User, username=data.get('username'))
         if user.confirmation_code != data.get('confirmation_code'):
-            user = get_object_or_404(User, username=data.get('username'))
-        if user.confirmation_code != data.get('confirmation_code'):
             raise serializers.ValidationError('Неверный код подтверждения')
         return data
 
@@ -91,8 +89,6 @@ class UserSerializer(serializers.ModelSerializer):
         max_length=254,
         validators=[UniqueValidator(queryset=User.objects.all())]
     )
-    first_name = serializers.CharField(max_length=150, required=False)
-    last_name = serializers.CharField(max_length=150, required=False)
     role = serializers.CharField(max_length=10, required=False, default='user')
 
     class Meta:

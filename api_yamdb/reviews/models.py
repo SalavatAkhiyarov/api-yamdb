@@ -1,6 +1,9 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
-from django.core.validators import MinValueValidator, MaxValueValidator
+from django.core.validators import (
+    MinValueValidator, MaxValueValidator, RegexValidator
+)
+from django.core.exceptions import ValidationError
 
 
 ROLE_CHOICES = (
@@ -11,21 +14,45 @@ ROLE_CHOICES = (
 
 
 class MyUser(AbstractUser):
+    username = models.CharField(
+        max_length=150,
+        unique=True,
+        validators=[
+            RegexValidator(
+                r'^[\w.@+-]+$',
+                message=(
+                    'Имя пользователя может содержать только буквы, '
+                    'цифры и символы @/./+/-/_'
+                )
+            )
+        ]
+    )
     email = models.EmailField(unique=True, null=False, blank=False)
     first_name = models.CharField(
-        'first_name', max_length=150, null=True, blank=True
+        'Имя', max_length=150, null=True, blank=True
     )
     last_name = models.CharField(
-        'last_name', max_length=150, null=True, blank=True
+        'Фамилия', max_length=150, null=True, blank=True
     )
-    bio = models.TextField('Био', null=True, blank=True)
+    bio = models.TextField('Описание', null=True, blank=True)
     role = models.CharField(
         'Роль', max_length=10, blank=True, default='user', choices=ROLE_CHOICES
     )
     confirmation_code = models.CharField(max_length=20, null=True, blank=True)
 
     class Meta:
+        verbose_name = 'Пользователь'
+        verbose_name_plural = 'Пользователи'
         ordering = ('role',)
+    
+    def clean(self):
+        super().clean()
+        if self.username.lower() == 'me':
+            raise ValidationError({'username': 'Имя "me" запрещено.'})
+    
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
 
 
 class Category(models.Model):

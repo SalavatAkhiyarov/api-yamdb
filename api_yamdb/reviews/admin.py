@@ -1,12 +1,25 @@
 from django.contrib import admin
+from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 
 from .models import Review, Comment, Category, Genre, Title, MyUser
 
 
-class MyUserAdmin(admin.ModelAdmin):
-    list_display = ('email', 'first_name', 'last_name', 'role', 'bio')
-    search_fields = ('email', 'first_name', 'last_name', 'role')
+@admin.register(MyUser)
+class UserAdmin(BaseUserAdmin):
+    list_display = (
+        'username', 'email', 'first_name', 'last_name', 'role', 'bio'
+    )
+    search_fields = ('username', 'email', 'first_name', 'last_name')
     list_filter = ('role',)
+    fieldsets = BaseUserAdmin.fieldsets + (
+        (None, {'fields': ('role', 'bio', 'confirmation_code')}),
+    )
+    add_fieldsets = (
+        (None, {
+            'classes': ('wide',),
+            'fields': ('username', 'email', 'password1', 'password2')
+        }),
+    )
 
 
 @admin.register(Review)
@@ -64,6 +77,3 @@ class TitleAdmin(admin.ModelAdmin):
     list_display = ('name', 'year', 'category', 'description')
     search_fields = ('name', 'category__name', 'genre__name')
     list_filter = ('category', 'genre', 'year')
-
-
-admin.site.register(MyUser, MyUserAdmin)
