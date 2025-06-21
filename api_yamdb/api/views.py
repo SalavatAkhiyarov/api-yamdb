@@ -136,9 +136,10 @@ class UserViewSet(viewsets.ModelViewSet):
         if self.kwargs.get('username') == 'me':
             if 'role' in data:
                 data.pop('role')
-        elif 'role' in data:
-            if request.user.role != 'admin':
-                data.pop('role')
+        elif 'role' in data and not (
+            request.user.is_superuser or request.user.role == 'admin'
+        ):
+            data.pop('role')
         serializer = self.get_serializer(user, data=data, partial=True)
         if serializer.is_valid():
             serializer.save()
