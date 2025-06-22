@@ -5,6 +5,8 @@ from django.core.validators import (
 )
 from django.core.exceptions import ValidationError
 
+from .validators import validate_year_not_in_future
+
 ROLE_CHOICES = (
     ('user', 'Аутентифицированный пользователь'),
     ('moderator', 'Модератор'),
@@ -43,7 +45,7 @@ class MyUser(AbstractUser):
         verbose_name = 'Пользователь'
         verbose_name_plural = 'Пользователи'
         ordering = ('role',)
-    
+
     def save(self, *args, **kwargs):
         if self.username.lower() == 'me':
             raise ValidationError({'username': 'Username "me" запрещен'})
@@ -99,7 +101,8 @@ class Title(models.Model):
     )
     year = models.SmallIntegerField(
         'Год выпуска',
-        db_index=True
+        db_index=True,
+        validators=[validate_year_not_in_future]
     )
     description = models.TextField(
         'Описание',
