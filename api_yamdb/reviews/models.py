@@ -5,7 +5,6 @@ from django.core.validators import (
 )
 from django.core.exceptions import ValidationError
 
-
 ROLE_CHOICES = (
     ('user', 'Аутентифицированный пользователь'),
     ('moderator', 'Модератор'),
@@ -44,11 +43,11 @@ class MyUser(AbstractUser):
         verbose_name = 'Пользователь'
         verbose_name_plural = 'Пользователи'
         ordering = ('role',)
-
-    def clean(self):
-        super().clean()
+    
+    def save(self, *args, **kwargs):
         if self.username.lower() == 'me':
-            raise ValidationError({'username': 'Имя "me" запрещено.'})
+            raise ValidationError({'username': 'Username "me" запрещен'})
+        super().save(*args, **kwargs)
 
 
 class Category(models.Model):
