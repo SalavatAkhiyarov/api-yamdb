@@ -7,9 +7,10 @@ from .views import (
     GenreViewSet,
     TitleViewSet,
     SignUpView,
-    TokenView
+    TokenView,
+    ReviewViewSet,
+    CommentViewSet
 )
-from reviews.views import ReviewViewSet, CommentViewSet
 
 v1_router = DefaultRouter()
 v1_router.register(r'users', UserViewSet, basename='users')

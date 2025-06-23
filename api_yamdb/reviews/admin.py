@@ -23,7 +23,7 @@ class UserAdmin(BaseUserAdmin):
 
 
 @admin.register(Review)
-class GroupAdmin(admin.ModelAdmin):
+class ReviewAdmin(admin.ModelAdmin):
     list_display = (
         'text',
         'author',
@@ -43,7 +43,7 @@ class GroupAdmin(admin.ModelAdmin):
 
 
 @admin.register(Comment)
-class GroupAdmin(admin.ModelAdmin):
+class CommentAdmin(admin.ModelAdmin):
     list_display = (
         'text',
         'author',

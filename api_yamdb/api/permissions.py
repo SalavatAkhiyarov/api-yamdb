@@ -20,8 +20,8 @@ class IsAuthorModeratorAdminOrReadOnly(BasePermission):
         return (
             request.method in SAFE_METHODS
             or request.user == obj.author
-            or request.user.role == 'moderator'
-            or request.user.role == 'admin'
+            or request.user.is_moderator
+            or request.user.is_admin
         )
 
 
