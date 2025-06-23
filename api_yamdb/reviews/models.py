@@ -1,55 +1,88 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.core.validators import (
-    MinValueValidator, MaxValueValidator, RegexValidator
+    MinValueValidator, MaxValueValidator
 )
 from django.core.exceptions import ValidationError
 
-from .validators import validate_year_not_in_future
+from .validators import validate_year_not_in_future, validate_username
+from .constants import (
+    USER,
+    ADMIN,
+    MODERATOR,
+    MAX_NAME_FIELD_LENGTH,
+    MAX_LENGTH_EMAIL,
+    MAX_ROLE_LENGTH,
+    STR_LIMIT,
+    ROLE_CHOICES
+)
 
 ROLE_CHOICES = (
-    ('user', 'Аутентифицированный пользователь'),
-    ('moderator', 'Модератор'),
-    ('admin', 'Администратор')
+    (USER, 'Аутентифицированный пользователь'),
+    (MODERATOR, 'Модератор'),
+    (ADMIN, 'Администратор')
 )
 
 
-class MyUser(AbstractUser):
+class User(AbstractUser):
     username = models.CharField(
-        max_length=150,
+        'Ник',
+        max_length=MAX_NAME_FIELD_LENGTH,
         unique=True,
-        validators=[
-            RegexValidator(
-                r'^[\w.@+-]+$',
-                message=(
-                    'Имя пользователя может содержать только буквы, '
-                    'цифры и символы @/./+/-/_'
-                )
-            )
-        ]
+        validators=(validate_username,)
     )
-    email = models.EmailField(unique=True, null=False, blank=False)
+    email = models.EmailField(
+        'Электронная почта',
+        max_length=MAX_LENGTH_EMAIL,
+        unique=True,
+        null=False,
+        blank=False
+    )
     first_name = models.CharField(
-        'Имя', max_length=150, null=True, blank=True
+        'Имя',
+        max_length=MAX_NAME_FIELD_LENGTH,
+        null=True,
+        blank=True
     )
     last_name = models.CharField(
-        'Фамилия', max_length=150, null=True, blank=True
+        'Фамилия',
+        max_length=MAX_NAME_FIELD_LENGTH,
+        null=True,
+        blank=True
     )
-    bio = models.TextField('Описание', null=True, blank=True)
+    bio = models.TextField(
+        'Описание',
+        null=True,
+        blank=True
+    )
     role = models.CharField(
-        'Роль', max_length=10, blank=True, default='user', choices=ROLE_CHOICES
+        'Роль',
+        max_length=MAX_ROLE_LENGTH,
+        blank=True,
+        default=USER,
+        choices=ROLE_CHOICES
     )
-    confirmation_code = models.CharField(max_length=20, null=True, blank=True)
+    confirmation_code = models.CharField(
+        'Код подтверждения',
+        max_length=6,
+        null=True,
+        blank=True)
+
+    @property
+    def is_admin(self):
+        return self.role == ADMIN or self.is_staff or self.is_superuser
+
+    @property
+    def is_moderator(self):
+        return self.role == MODERATOR
+    
+    def __str__(self):
+        return self.username[:STR_LIMIT]
 
     class Meta:
         verbose_name = 'Пользователь'
         verbose_name_plural = 'Пользователи'
         ordering = ('role',)
-
-    def save(self, *args, **kwargs):
-        if self.username.lower() == 'me':
-            raise ValidationError({'username': 'Username "me" запрещен'})
-        super().save(*args, **kwargs)
 
 
 class Category(models.Model):
@@ -135,7 +168,7 @@ class Title(models.Model):
 class Review(models.Model):
     text = models.TextField('Текст')
     author = models.ForeignKey(
-        MyUser,
+        User,
         on_delete=models.CASCADE,
         related_name='reviews'
     )
@@ -171,7 +204,7 @@ class Review(models.Model):
 class Comment(models.Model):
     text = models.TextField('Текст')
     author = models.ForeignKey(
-        MyUser,
+        User,
         on_delete=models.CASCADE,
         related_name='comments'
     )
