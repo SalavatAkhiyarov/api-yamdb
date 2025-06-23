@@ -179,7 +179,10 @@ class GenreViewSet(BaseCategoryGenreViewSet):
 
 class TitleViewSet(viewsets.ModelViewSet):
     queryset = (
-        Title.objects.select_related('category').prefetch_related('genre')
+        Title.objects
+        .select_related('category')
+        .prefetch_related('genre')
+        .annotate(rating=Avg('reviews__score'))
     )
     pagination_class = PageNumberPagination
     permission_classes = (IsAdminOrReadOnly,)
@@ -189,9 +192,7 @@ class TitleViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         """Кастомная фильтрация для произведений"""
-        queryset = super().get_queryset().annotate(
-            rating=Avg('reviews__score')
-        )
+        queryset = super().get_queryset()
         name = self.request.query_params.get('name')
         if name:
             queryset = queryset.filter(name__icontains=name)
