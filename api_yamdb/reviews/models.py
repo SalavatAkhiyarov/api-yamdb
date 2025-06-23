@@ -64,12 +64,12 @@ class MyUser(AbstractUser):
 class CategoryGenreBase(models.Model):
     name = models.CharField(
         'Название',
-        max_length=constants.MAX_LEN_NAME,
+        max_length=MAX_LEN_NAME,
         unique=True
     )
     slug = models.SlugField(
         'Slug',
-        max_length=constants.MAX_LEN_SLUG,
+        max_length=MAX_LEN_SLUG,
         unique=True
     )
 
@@ -98,7 +98,7 @@ class Genre(CategoryGenreBase):
 class Title(models.Model):
     name = models.CharField(
         'Название произведения',
-        max_length=constants.MAX_LEN_TITLE_NAME
+        max_length=MAX_LEN_TITLE_NAME
     )
     year = models.SmallIntegerField(
         'Год выпуска',
@@ -109,7 +109,7 @@ class Title(models.Model):
         'Описание',
         blank=True,
         null=True,
-        max_length=constants.MAX_LEN_DESCRIPTION
+        max_length=MAX_LEN_DESCRIPTION
     )
     genre = models.ManyToManyField(
         Genre,
