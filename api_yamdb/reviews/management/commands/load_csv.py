@@ -11,209 +11,201 @@ from reviews.models import Category, Genre, Title, Review, Comment, MyUser
 class Command(BaseCommand):
     help = 'Загружает тестовые данные из csv файлов в бд'
 
-    def add_arguments(self, parser):
-        # Добавляем аргумент --clear очистим данные
-        # перед каждым повторным заупском
-        parser.add_argument(
-            '--clear',
-            action='store_true',
-            help='Очистить все перед загрузкой'
-        )
-
     def handle(self, *args, **options):
-        # Если укажем --clear, очистим данные
-        if options['clear']:
-            self.clear_database()
-            self.stdout.write(self.style.SUCCESS('Данные очищены'))
-        # Указываем путь к папке с данными
-        data_folder = os.path.join(settings.BASE_DIR, 'static', 'data')
-        # Даём порядок загрузки файлов
-        # (важно т.к они зависят друг от друга,
-        # т.е. комменты без пользователя загружать нельзя)
-        load_order = [
-            ('users.csv', self.load_users),
-            ('category.csv', self.load_categories),
-            ('genre.csv', self.load_genres),
-            ('titles.csv', self.load_titles),
-            ('genre_title.csv', self.load_genre_title),
-            ('review.csv', self.load_reviews),
-            ('comments.csv', self.load_comments),
-        ]
-        # загружаем каждый файл по очереди
-        for filename, loader in load_order:
-            filepath = os.path.join(data_folder, filename)
-            # Проверяем существование файла,
-            # если его нет - останавливаем процесс
+        """Метод обработки команды"""
+        # Очищаем бд от старых данных
+        self.clear_database()
+        self.stdout.write(self.style.SUCCESS('Данные очищены'))
+        # Для каждой модели указываем
+        # какой файл читать
+        # как преобразоваять поля из файла
+        models_data = {
+            MyUser: {
+                'filename': 'users.csv',
+                'fields': {
+                    # преобразуем в число
+                    'id': self.convert_int,
+                    # преобразуем в строку
+                    'username': self.convert_str,
+                    'email': self.convert_str,
+                    'role': self.convert_str,
+                    # пустые значения - None
+                    'bio': self.convert_optional_str,
+                    'first_name': self.convert_optional_str,
+                    'last_name': self.convert_optional_str
+                }
+            },
+            Category: {
+                'filename': 'category.csv',
+                'fields': {
+                    'id': self.convert_int,
+                    'name': self.convert_str,
+                    'slug': self.convert_str
+                }
+            },
+            Genre: {
+                'filename': 'genre.csv',
+                'fields': {
+                    'id': self.convert_int,
+                    'name': self.convert_str,
+                    'slug': self.convert_str
+                }
+            },
+            Title: {
+                'filename': 'titles.csv',
+                'fields': {
+                    'id': self.convert_int,
+                    'name': self.convert_str,
+                    'year': self.convert_int,
+                    # Для категорий находим объект по ИД
+                    'category': self.get_category
+                }
+            },
+            # Связи между произведениями и жарнрами
+            'genre_title': {
+                'filename': 'genre_title.csv',
+                'fields': {
+                    'id': self.convert_int,
+                    'title_id': self.convert_int,
+                    'genre_id': self.convert_int
+                }
+            },
+            Review: {
+                'filename': 'review.csv',
+                'fields': {
+                    'id': self.convert_int,
+                    'title_id': self.convert_int,
+                    'text': self.convert_str,
+                    'author': self.get_user,
+                    'score': self.convert_int,
+                    'pub_date': self.convert_datetime
+                }
+            },
+            Comment: {
+                'filename': 'comments.csv',
+                'fields': {
+                    'id': self.convert_int,
+                    'review_id': self.convert_int,
+                    'text': self.convert_str,
+                    'author': self.get_user,
+                    'pub_date': self.convert_datetime
+                }
+            }
+        }
+        # Обрабатываем модели по череди
+        for model, data in models_data.items():
+            # путь к файлу
+            filepath = os.path.join(
+                settings.BASE_DIR,
+                'static', 'data',
+                data['filename']
+            )
+            # Проверяем найден ли файл
             if not os.path.exists(filepath):
                 self.stdout.write(
-                    self.style.ERROR(f'Файл не найден: {filename}')
+                    self.style.ERROR(f'Файл не найден: {data["filename"]}')
                 )
-                return  # Останавливаем выполнение
-            # Показываем какой файл загружается
-            self.stdout.write(f'Загрузка файла: {filename}')
+                return
+            self.stdout.write(f'Загрузка файла: {data["filename"]}')
             try:
-                # Вызываем метод загрузки
-                loader(filepath)
-                self.stdout.write(
-                    self.style.SUCCESS(f'Успешно загружен: {filename}')
+                # Тут для связи жанр-произведение особая обработка
+                if model == 'genre_title':
+                    self.process_genre_title(filepath)
+                # Для обычных моделей
+                else:
+                    self.process_model_file(model, filepath, data['fields'])
+                self.stdout.write(self.style.SUCCESS(
+                    f'Успешно загружен: {data["filename"]}')
                 )
+                # Если возникла ошибка показываем и останавливаекм
             except Exception as e:
                 self.stdout.write(
-                    self.style.ERROR(f'Ошибка: {filename} - {str(e)}')
+                    self.style.ERROR(f'Ошибка: {data["filename"]} - {str(e)}')
                 )
-                return  # Останавлием при ошибке
-        # После цикла сообщаем что всё успешно загружено
-        self.stdout.write(
-            self.style.SUCCESS('Все данные успешно загружены')
-        )
+                return
 
-    # Метод очистки бд(Тот самый флажок --clear)
+        self.stdout.write(self.style.SUCCESS('Все данные успешно загружены'))
+
+    # Методы преобразования данных
+    def convert_int(self, value):
+        """ Преобразуем в число"""
+        return int(value)
+
+    def convert_str(self, value):
+        """Преобразуем в строку"""
+        return str(value)
+
+    def convert_optional_str(self, value):
+        """" Поле необязательное - превращаем пустую строку в None"""
+        return value if value else None
+
+    def convert_datetime(self, value):
+        """ Преобразуем дату в объект datetime"""
+        return datetime.strptime(value, '%Y-%m-%dT%H:%M:%S.%fZ')
+
+    def get_category(self, category_id):
+        """ Находит объект категории по его ИД"""
+        return Category.objects.get(id=int(category_id))
+
+    def get_user(self, user_id):
+        """Находит объект пользователя по его ИД"""
+        return MyUser.objects.get(id=int(user_id))
+
     def clear_database(self):
-        """Очистка данных"""
-        # Важно соблюдать порядок из-за связей между моделями
+        """Очистка данных в правильном порядке"""
+        # Сначала удаляем комментарии (они зависят от отзывов)
         Comment.objects.all().delete()
+        # Затем удаляем отзывы (они зависят от произведений)
         Review.objects.all().delete()
+        # Удаляем связь между произведениями и жанрами
         Title.genre.through.objects.all().delete()
         Title.objects.all().delete()
         Genre.objects.all().delete()
         Category.objects.all().delete()
         MyUser.objects.all().delete()
 
-    # Методы загрузки данных
-    def load_users(self, filepath):
-        """ Загружает пользователей
-        Формат файла: id,username,email,role,bio,first_name,last_name
-        (формат соответсвует полям моделей,
-        либо уже указаны в самих файлах csv)
+    def process_model_file(self, model, filepath, fields_mapping):
         """
-        # Открываем файл
+        Обрабатывает CSV файл и создает объекты модели,
+        преобразует данные и сохраняет в базу
+        """
+        # Список для хранения объектов перед сохранением
+        objects_to_create = []
+        # Открываем CSV файл
         with open(filepath, encoding='utf-8') as f:
-            reader = csv.DictReader(f)  # Читаем файл как словарь
-            # Создаём пользователя сохраняя ИД
+            # Читаем как словарь
+            reader = csv.DictReader(f)
+            # Перебираем каждую строку в файле
             for row in reader:
-                # Используем update_or_creat для защиты от дублирования
-                # Чтобы каждый раз не очищать БД
-                MyUser.objects.update_or_create(
-                    id=row['id'],
-                    defaults={
-                        'username': row['username'],
-                        'email': row['email'],
-                        'role': row['role'],
-                        # Где возможны пустые строки ставим None
-                        'bio': row['bio'] or None,
-                        'first_name': row['first_name'] or None,
-                        'last_name': row['last_name'] or None
-                    }
-                )
+                # Создаём словарь для данных
+                model_data = {}
+                # Для каждого поля, которое нужно обработать
+                for field, converter in fields_mapping.items():
+                    try:
+                        # Преобразуем значение с помощью функции
+                        model_data[field] = converter(row[field])
+                    except Exception as e:
+                        # Если ошибка - сообщаем в каком поле проблема
+                        raise ValueError(
+                            f'Ошибка обработки поля {field}: {str(e)}'
+                        )
+                    # Создаем объект модели
+                objects_to_create.append(model(**model_data))
+        # Сохраняем все объекты одним запросом
+        model.objects.bulk_create(objects_to_create)
 
-    def load_categories(self, filepath):
-        """
-        Загружает категории
-        """
+    def process_genre_title(self, filepath):
+        """Обрабатывает связи между произведениями и жанрами"""
         with open(filepath, encoding='utf-8') as f:
             reader = csv.DictReader(f)
+            # Для каждой строки в файле связей
             for row in reader:
-                Category.objects.update_or_create(
-                    id=row['id'],
-                    defaults={
-                        'name': row['name'],
-                        'slug': row['slug']
-                    }
-                )
-
-    def load_genres(self, filepath):
-        """
-        Загружает жанры
-        """
-        with open(filepath, encoding='utf-8') as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                Genre.objects.update_or_create(
-                    id=row['id'],
-                    defaults={
-                        'name': row['name'],
-                        'slug': row['slug']
-                    }
-                )
-
-    # Важно чтобы категории были загружены ранее
-    def load_titles(self, filepath):
-        """
-        Загружает произведения
-        """
-        with open(filepath, encoding='utf-8') as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                # Преобразуем год в число
-                year = int(row['year'])
-                # Находим категорию по ид. Она уже должна существовать
-                category = Category.objects.get(id=row['category'])
-                Title.objects.update_or_create(
-                    id=row['id'],
-                    defaults={
-                        'name': row['name'],
-                        'year': year,
-                        'category': category,
-                    }
-                )
-
-    # Опять же важно чтобы произведения и жанры были загружены раньше
-    def load_genre_title(self, filepath):
-        """
-        Создает связи между произведениями и жанрами
-        """
-        with open(filepath, encoding='utf-8') as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                # Находим произведение и жанр по ИД
-                title = Title.objects.get(id=row['title_id'])
-                genre = Genre.objects.get(id=row['genre_id'])
-                # Добавляем связь мэни ту мэни,
-                # т.е. добавляем жанр к произведению
-                title.genre.add(genre)
-
-    def load_reviews(self, filepath):
-        """
-        Загружает отзывы
-        """
-        with open(filepath, encoding='utf-8') as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                # Преобразуем строку даты в datetime
-                pub_date = datetime.strptime(
-                    row['pub_date'],
-                    '%Y-%m-%dT%H:%M:%S.%fZ'
-                )
-                score = int(row['score'])
-                Review.objects.update_or_create(
-                    id=row['id'],
-                    defaults={
-                        'title_id': row['title_id'],
-                        'text': row['text'],
-                        'author_id': row['author'],
-                        'score': score,
-                        'pub_date': pub_date
-                    }
-                )
-
-    def load_comments(self, filepath):
-        """
-        Загружает комментарии
-        """
-        with open(filepath, encoding='utf-8') as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                pub_date = datetime.strptime(
-                    row['pub_date'],
-                    '%Y-%m-%dT%H:%M:%S.%fZ'
-                )
-                Comment.objects.update_or_create(
-                    id=row['id'],
-                    defaults={
-                        'review_id': row['review_id'],
-                        'text': row['text'],
-                        'author_id': row['author'],
-                        'pub_date': pub_date
-                    }
-                )
-# Команда для запуска python manage.py load_csv
+                try:
+                    # Находим произведение по ид
+                    title = Title.objects.get(id=int(row['title_id']))
+                    # Находим жанр по ид
+                    genre = Genre.objects.get(id=int(row['genre_id']))
+                    # Добавляем жанр к произведению (создаем связь)
+                    title.genre.add(genre)
+                except Exception as e:
+                    raise ValueError(f'Ошибка создания связи: {str(e)}')
