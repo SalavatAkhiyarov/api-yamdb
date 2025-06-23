@@ -16,7 +16,6 @@ from rest_framework.permissions import (
 )
 
 from .filters import TitleFilter
-from reviews.models import Category, Genre, Title
 from .permissions import (
     AdminRole,
     IsAdminOrReadOnly,
