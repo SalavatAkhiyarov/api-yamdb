@@ -4,7 +4,7 @@ from django.core.validators import (
     MinValueValidator, MaxValueValidator, RegexValidator
 )
 from django.core.exceptions import ValidationError
-
+from . import constants
 from .validators import validate_year_not_in_future
 
 ROLE_CHOICES = (
@@ -52,52 +52,44 @@ class MyUser(AbstractUser):
         super().save(*args, **kwargs)
 
 
-class Category(models.Model):
+class CategoryGenreBase(models.Model):
     name = models.CharField(
-        'Название категории',
-        max_length=256,
+        'Название',
+        max_length=constants.MAX_LEN_NAME,
         unique=True
     )
     slug = models.SlugField(
-        'Slug категории',
-        max_length=50,
+        'Slug',
+        max_length=constants.MAX_LEN_SLUG,
         unique=True
     )
 
     class Meta:
+        abstract = True
+        ordering = ('name',)
+        verbose_name = 'Базовый класс категории/жанра'
+        verbose_name_plural = 'Базовые классы категорий/жанров'
+
+    def __str__(self):
+        return self.name[:20]
+
+
+class Category(CategoryGenreBase):
+    class Meta(CategoryGenreBase.Meta):
         verbose_name = 'Категория'
         verbose_name_plural = 'Категории'
-        ordering = ('name',)
-
-    def __str__(self):
-        return self.name
 
 
-class Genre(models.Model):
-    name = models.CharField(
-        'Название жанра',
-        max_length=256,
-        unique=True
-    )
-    slug = models.SlugField(
-        'Slug жанра',
-        max_length=50,
-        unique=True
-    )
-
-    class Meta:
+class Genre(CategoryGenreBase):
+    class Meta(CategoryGenreBase.Meta):
         verbose_name = 'Жанр'
         verbose_name_plural = 'Жанры'
-        ordering = ('name',)
-
-    def __str__(self):
-        return self.name
 
 
 class Title(models.Model):
     name = models.CharField(
         'Название произведения',
-        max_length=256
+        max_length=constants.MAX_LEN_TITLE_NAME
     )
     year = models.SmallIntegerField(
         'Год выпуска',
@@ -107,7 +99,8 @@ class Title(models.Model):
     description = models.TextField(
         'Описание',
         blank=True,
-        null=True
+        null=True,
+        max_length=constants.MAX_LEN_DESCRIPTION
     )
     genre = models.ManyToManyField(
         Genre,

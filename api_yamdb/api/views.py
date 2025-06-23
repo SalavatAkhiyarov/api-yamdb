@@ -3,16 +3,17 @@ import random
 from django.contrib.auth import get_user_model
 from django.core.mail import send_mail
 from django.db.models import Avg
+from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import viewsets, filters, mixins
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import status
 from rest_framework_simplejwt.tokens import AccessToken
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated, SAFE_METHODS
 from rest_framework.exceptions import ValidationError
-from rest_framework import filters
 
+from .filters import TitleFilter
 from .permissions import AdminRole, IsAdminOrReadOnly
 from reviews.models import Category, Genre, Title
 from .serializers import (
@@ -165,6 +166,7 @@ class BaseCategoryGenreViewSet(
     filter_backends = (filters.SearchFilter,)
     search_fields = ('name',)
     lookup_field = 'slug'
+    http_method_names = ('get', 'post', 'delete')
 
 
 class CategoryViewSet(BaseCategoryGenreViewSet):
@@ -179,41 +181,24 @@ class GenreViewSet(BaseCategoryGenreViewSet):
 
 class TitleViewSet(viewsets.ModelViewSet):
     queryset = (
-        Title.objects.select_related('category').prefetch_related('genre')
+        Title.objects.select_related('category')
+        .prefetch_related('genre')
+        .annotate(rating=Avg('reviews__score'))
     )
     pagination_class = PageNumberPagination
     permission_classes = (IsAdminOrReadOnly,)
-    filter_backends = (filters.SearchFilter,)
+    filter_backends = (
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter
+    )
     search_fields = ('name',)
-    http_method_names = ['get', 'post', 'patch', 'delete']
-
-    def get_queryset(self):
-        """Кастомная фильтрация для произведений"""
-        queryset = super().get_queryset().annotate(
-            rating=Avg('reviews__score')
-        )
-        name = self.request.query_params.get('name')
-        if name:
-            queryset = queryset.filter(name__icontains=name)
-        genre_slug = self.request.query_params.get('genre')
-        if genre_slug:
-            queryset = queryset.filter(genre__slug=genre_slug)
-        category_slug = self.request.query_params.get('category')
-        if category_slug:
-            queryset = queryset.filter(category__slug=category_slug)
-        year = self.request.query_params.get('year')
-        if year:
-            try:
-                year = int(year)
-                queryset = queryset.filter(year=year)
-            except ValueError:
-                raise ValidationError(
-                    {'year': 'year должен быть целым числом'}
-                )
-        return queryset.distinct().order_by('-year', 'name')
+    filterset_class = TitleFilter
+    ordering_fields = ('name', 'year')
+    http_method_names = ('get', 'post', 'patch', 'delete')
 
     def get_serializer_class(self):
         """Выбор сериализатора в зависимости от типа запроса"""
-        if self.request.method == 'GET':
+        if self.request.method in SAFE_METHODS:
             return TitleReadSerializer
         return TitleWriteSerializer
