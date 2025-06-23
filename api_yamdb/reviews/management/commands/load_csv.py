@@ -191,7 +191,7 @@ class Command(BaseCommand):
                         )
                     # Создаем объект модели
                 objects_to_create.append(model(**model_data))
-        # Сохраняем все объекты одним запросом        
+        # Сохраняем все объекты одним запросом
         model.objects.bulk_create(objects_to_create)
 
     def process_genre_title(self, filepath):
