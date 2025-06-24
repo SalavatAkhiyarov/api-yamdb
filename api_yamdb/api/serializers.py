@@ -5,9 +5,7 @@ from django.shortcuts import get_object_or_404
 from django.core.mail import send_mail
 from django.conf import settings
 from rest_framework import serializers
-from rest_framework.exceptions import ValidationError
 from rest_framework_simplejwt.tokens import AccessToken
-from django.core.validators import RegexValidator
 
 from reviews.models import (
     Category,
@@ -18,7 +16,10 @@ from reviews.models import (
 )
 from reviews.constants import (
     MAX_NAME_FIELD_LENGTH,
-    MAX_LENGTH_EMAIL
+    MAX_LENGTH_EMAIL,
+    CONFIRMATION_CODE_MIN,
+    CONFIRMATION_CODE_MAX,
+    CONFIRMATION_CODE_LENGTH
 )
 from .validators import UsernameValidationMixin
 
@@ -29,23 +30,33 @@ class SignUpSerializer(serializers.Serializer, UsernameValidationMixin):
     email = serializers.EmailField(max_length=MAX_LENGTH_EMAIL)
     username = serializers.CharField(max_length=MAX_NAME_FIELD_LENGTH)
 
+    def validate(self, data):
+        username = data.get('username')
+        email = data.get('email')
+        existing_user = User.objects.filter(username=username).first()
+        if existing_user and existing_user.email != email:
+            raise serializers.ValidationError(
+                'Username уже используется другим пользователем'
+            )
+        if existing_user and existing_user.email == email:
+            return data
+        if User.objects.filter(email=email).exists():
+            raise serializers.ValidationError(
+                'Email уже используется другим пользователем'
+            )
+        return data
+
     def create(self, validated_data):
         username = validated_data['username']
         email = validated_data['email']
-        confirmation_code = str(random.randint(100000, 999999))
+        confirmation_code = str(
+            random.randint(CONFIRMATION_CODE_MIN, CONFIRMATION_CODE_MAX)
+        )
         user = User.objects.filter(username=username, email=email).first()
         if user:
             user.confirmation_code = confirmation_code
             user.save()
         else:
-            if User.objects.filter(username=username).exists():
-                raise serializers.ValidationError(
-                    'Username уже используется другим пользователем'
-                )
-            if User.objects.filter(email=email).exists():
-                raise serializers.ValidationError(
-                    'Email уже используется другим пользователем'
-                )
             user = User.objects.create(
                 username=username,
                 email=email,
@@ -61,20 +72,13 @@ class SignUpSerializer(serializers.Serializer, UsernameValidationMixin):
         return user
 
 
-class TokenSerializer(serializers.Serializer):
+class TokenSerializer(serializers.Serializer, UsernameValidationMixin):
     username = serializers.CharField(
-        max_length=MAX_NAME_FIELD_LENGTH,
-        validators=[
-            RegexValidator(
-                r'^[\w.@+-]+$',
-                message=(
-                    'Имя пользователя может содержать только буквы, '
-                    'цифры и символы @/./+/-/_'
-                )
-            )
-        ]
+        max_length=MAX_NAME_FIELD_LENGTH
     )
-    confirmation_code = serializers.CharField(max_length=6)
+    confirmation_code = serializers.CharField(
+        max_length=CONFIRMATION_CODE_LENGTH
+    )
 
     def validate(self, data):
         username = data.get('username')
@@ -86,6 +90,11 @@ class TokenSerializer(serializers.Serializer):
             )
         if user.confirmation_code != confirmation_code:
             raise serializers.ValidationError('Неверный код подтверждения')
+        return data
+
+    def create(self, validated_data):
+        username = validated_data['username']
+        user = get_object_or_404(User, username=username)
         user.confirmation_code = ''
         user.save()
         token = AccessToken.for_user(user)
@@ -99,21 +108,6 @@ class UserSerializer(serializers.ModelSerializer):
         fields = (
             'username', 'email', 'first_name', 'last_name', 'role', 'bio'
         )
-
-    def validate(self, data):
-        request = self.context.get('request')
-        if request and request.method == 'POST':
-            username = data.get('username')
-            email = data.get('email')
-            if User.objects.filter(username=username).exists():
-                raise ValidationError(
-                    f"Пользователь с username '{username}' уже существует"
-                )
-            if email and User.objects.filter(email=email).exists():
-                raise ValidationError(
-                    f"Пользователь с email '{email}' уже существует"
-                )
-        return data
 
 
 class UserMeSerializer(UserSerializer):

@@ -19,6 +19,7 @@ from .constants import (
     MAX_LEN_NAME,
     MAX_LEN_SLUG,
     MAX_LEN_TITLE_NAME,
+    CONFIRMATION_CODE_LENGTH
 )
 
 
@@ -33,8 +34,6 @@ class User(AbstractUser):
         'Электронная почта',
         max_length=MAX_LENGTH_EMAIL,
         unique=True,
-        null=False,
-        blank=False
     )
     first_name = models.CharField(
         'Имя',
@@ -62,9 +61,14 @@ class User(AbstractUser):
     )
     confirmation_code = models.CharField(
         'Код подтверждения',
-        max_length=6,
+        max_length=CONFIRMATION_CODE_LENGTH,
         null=True,
         blank=True)
+
+    class Meta:
+        verbose_name = 'Пользователь'
+        verbose_name_plural = 'Пользователи'
+        ordering = ('role',)
 
     @property
     def is_admin(self):
@@ -76,11 +80,6 @@ class User(AbstractUser):
 
     def __str__(self):
         return self.username[:STR_LIMIT]
-
-    class Meta:
-        verbose_name = 'Пользователь'
-        verbose_name_plural = 'Пользователи'
-        ordering = ('role',)
 
 
 class NameSlugBase(models.Model):
@@ -155,7 +154,7 @@ class Title(models.Model):
         return self.name[:STR_LIMIT]
 
 
-class ReviewCommentBaseModel(models.Model):
+class TextAuthorDateModel(models.Model):
     text = models.TextField('Текст')
     author = models.ForeignKey(
         User,
@@ -169,16 +168,16 @@ class ReviewCommentBaseModel(models.Model):
         ordering = ('pub_date',)
 
     def __str__(self):
-        return f'{self.text[:25]} ({self.author=})'
+        return f'{self.text[:STR_LIMIT]} ({self.author=})'
 
 
-class Review(ReviewCommentBaseModel):
+class Review(TextAuthorDateModel):
     title = models.ForeignKey(
         Title,
         on_delete=models.CASCADE,
         related_name='reviews'
     )
-    score = models.SmallIntegerField(
+    score = models.PositiveSmallIntegerField(
         'Оценка',
         validators=[
             MinValueValidator(SCORE_MIN_VALUE),
@@ -186,24 +185,24 @@ class Review(ReviewCommentBaseModel):
         ]
     )
 
-    class Meta(ReviewCommentBaseModel.Meta):
-        constraints = [
+    class Meta(TextAuthorDateModel.Meta):
+        constraints = (
             models.UniqueConstraint(
                 fields=['author', 'title'],
                 name='unique-author-title'
-            )
-        ]
+            ),
+        )
         verbose_name = 'Отзыв'
         verbose_name_plural = 'Отзывы'
 
 
-class Comment(ReviewCommentBaseModel):
+class Comment(TextAuthorDateModel):
     review = models.ForeignKey(
         Review,
         related_name='comments',
         on_delete=models.CASCADE
     )
 
-    class Meta(ReviewCommentBaseModel.Meta):
+    class Meta(TextAuthorDateModel.Meta):
         verbose_name = 'Комментарий'
         verbose_name_plural = 'Комментарии'
