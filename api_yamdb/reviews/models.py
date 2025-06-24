@@ -19,7 +19,8 @@ from .constants import (
     MAX_LEN_NAME,
     MAX_LEN_SLUG,
     MAX_LEN_TITLE_NAME,
-    MAX_LEN_DESCRIPTION
+    MAX_LEN_DESCRIPTION,
+    CONFIRMATION_CODE_LENGTH
 )
 
 
@@ -34,8 +35,6 @@ class User(AbstractUser):
         'Электронная почта',
         max_length=MAX_LENGTH_EMAIL,
         unique=True,
-        null=False,
-        blank=False
     )
     first_name = models.CharField(
         'Имя',
@@ -63,9 +62,14 @@ class User(AbstractUser):
     )
     confirmation_code = models.CharField(
         'Код подтверждения',
-        max_length=6,
+        max_length=CONFIRMATION_CODE_LENGTH,
         null=True,
         blank=True)
+
+    class Meta:
+        verbose_name = 'Пользователь'
+        verbose_name_plural = 'Пользователи'
+        ordering = ('role',)
 
     @property
     def is_admin(self):
@@ -77,11 +81,6 @@ class User(AbstractUser):
 
     def __str__(self):
         return self.username[:STR_LIMIT]
-
-    class Meta:
-        verbose_name = 'Пользователь'
-        verbose_name_plural = 'Пользователи'
-        ordering = ('role',)
 
 
 class CategoryGenreBase(models.Model):
