@@ -156,7 +156,7 @@ class Title(models.Model):
         return self.name
 
 
-class ReviewCommentBaseModel(models.Model):
+class TextAuthorDateModel(models.Model):
     text = models.TextField('Текст')
     author = models.ForeignKey(
         User,
@@ -170,16 +170,16 @@ class ReviewCommentBaseModel(models.Model):
         ordering = ('pub_date',)
 
     def __str__(self):
-        return f'{self.text[:25]} ({self.author=})'
+        return f'{self.text[:STR_LIMIT]} ({self.author=})'
 
 
-class Review(ReviewCommentBaseModel):
+class Review(TextAuthorDateModel):
     title = models.ForeignKey(
         Title,
         on_delete=models.CASCADE,
         related_name='reviews'
     )
-    score = models.SmallIntegerField(
+    score = models.PositiveSmallIntegerField(
         'Оценка',
         validators=[
             MinValueValidator(SCORE_MIN_VALUE),
@@ -187,24 +187,24 @@ class Review(ReviewCommentBaseModel):
         ]
     )
 
-    class Meta(ReviewCommentBaseModel.Meta):
-        constraints = [
+    class Meta(TextAuthorDateModel.Meta):
+        constraints = (
             models.UniqueConstraint(
                 fields=['author', 'title'],
                 name='unique-author-title'
-            )
-        ]
+            ),
+        )
         verbose_name = 'Отзыв'
         verbose_name_plural = 'Отзывы'
 
 
-class Comment(ReviewCommentBaseModel):
+class Comment(TextAuthorDateModel):
     review = models.ForeignKey(
         Review,
         related_name='comments',
         on_delete=models.CASCADE
     )
 
-    class Meta(ReviewCommentBaseModel.Meta):
+    class Meta(TextAuthorDateModel.Meta):
         verbose_name = 'Комментарий'
         verbose_name_plural = 'Комментарии'
