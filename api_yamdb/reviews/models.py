@@ -19,7 +19,6 @@ from .constants import (
     MAX_LEN_NAME,
     MAX_LEN_SLUG,
     MAX_LEN_TITLE_NAME,
-    MAX_LEN_DESCRIPTION
 )
 
 
@@ -84,7 +83,7 @@ class User(AbstractUser):
         ordering = ('role',)
 
 
-class CategoryGenreBase(models.Model):
+class NameSlugBase(models.Model):
     name = models.CharField(
         'Название',
         max_length=MAX_LEN_NAME,
@@ -103,17 +102,17 @@ class CategoryGenreBase(models.Model):
         verbose_name_plural = 'Базовые классы категорий/жанров'
 
     def __str__(self):
-        return self.name[:20]
+        return self.name[:STR_LIMIT]
 
 
-class Category(CategoryGenreBase):
-    class Meta(CategoryGenreBase.Meta):
+class Category(NameSlugBase):
+    class Meta(NameSlugBase.Meta):
         verbose_name = 'Категория'
         verbose_name_plural = 'Категории'
 
 
-class Genre(CategoryGenreBase):
-    class Meta(CategoryGenreBase.Meta):
+class Genre(NameSlugBase):
+    class Meta(NameSlugBase.Meta):
         verbose_name = 'Жанр'
         verbose_name_plural = 'Жанры'
 
@@ -132,7 +131,6 @@ class Title(models.Model):
         'Описание',
         blank=True,
         null=True,
-        max_length=MAX_LEN_DESCRIPTION
     )
     genre = models.ManyToManyField(
         Genre,
@@ -154,7 +152,7 @@ class Title(models.Model):
         ordering = ('-year', 'name')
 
     def __str__(self):
-        return self.name
+        return self.name[:STR_LIMIT]
 
 
 class ReviewCommentBaseModel(models.Model):
