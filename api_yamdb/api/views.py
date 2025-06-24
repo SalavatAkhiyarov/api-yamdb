@@ -49,11 +49,8 @@ class SignUpView(APIView):
     def post(self, request):
         serializer = SignUpSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        user = serializer.save()
-        return Response(
-            {'email': user.email, 'username': user.username},
-            status=status.HTTP_200_OK
-        )
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class TokenView(APIView):
@@ -62,7 +59,8 @@ class TokenView(APIView):
     def post(self, request):
         serializer = TokenSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        return Response(serializer.validated_data, status=status.HTTP_200_OK)
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class UserViewSet(viewsets.ModelViewSet):
@@ -74,23 +72,20 @@ class UserViewSet(viewsets.ModelViewSet):
     permission_classes = (AdminRole,)
     http_method_names = ('get', 'post', 'patch', 'delete')
 
-    @action(detail=False, methods=['get'], url_path='me',
+    @action(detail=False, methods=('get',), url_path='me',
             permission_classes=(IsAuthenticated,))
     def me(self, request):
         serializer = UserMeSerializer(request.user)
         return Response(serializer.data)
 
     @me.mapping.patch
-    @action(detail=False, methods=['patch'], url_path='me',
-            permission_classes=(IsAuthenticated,))
     def patch_me(self, request):
         serializer = UserMeSerializer(
             request.user, data=request.data, partial=True
         )
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
 
 
 class BaseCategoryGenreViewSet(

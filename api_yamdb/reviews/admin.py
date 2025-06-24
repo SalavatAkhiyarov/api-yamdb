@@ -9,6 +9,7 @@ class UserAdmin(BaseUserAdmin):
     list_display = (
         'username', 'email', 'first_name', 'last_name', 'role', 'bio'
     )
+    list_editable = ('role',)
     search_fields = ('username', 'email', 'first_name', 'last_name')
     list_filter = ('role',)
     fieldsets = BaseUserAdmin.fieldsets + (
