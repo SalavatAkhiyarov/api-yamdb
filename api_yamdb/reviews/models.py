@@ -198,16 +198,16 @@ class Review(TextAuthorDateModel):
     )
     score = models.PositiveSmallIntegerField(
         'Оценка',
-        validators=[
+        validators=(
             MinValueValidator(SCORE_MIN_VALUE),
             MaxValueValidator(SCORE_MAX_VALUE)
-        ]
+        )
     )
 
     class Meta(TextAuthorDateModel.Meta):
         constraints = (
             models.UniqueConstraint(
-                fields=['author', 'title'],
+                fields=('author', 'title'),
                 name='unique-author-title'
             ),
         )
