@@ -52,16 +52,14 @@ class SignUpSerializer(serializers.Serializer, UsernameValidationMixin):
         confirmation_code = str(
             random.randint(CONFIRMATION_CODE_MIN, CONFIRMATION_CODE_MAX)
         )
-        user = User.objects.filter(username=username, email=email).first()
-        if user:
+        user, created = User.objects.get_or_create(
+            username=username,
+            email=email,
+            defaults={'confirmation_code': confirmation_code}
+        )
+        if not created:
             user.confirmation_code = confirmation_code
             user.save()
-        else:
-            user = User.objects.create(
-                username=username,
-                email=email,
-                confirmation_code=confirmation_code
-            )
         send_mail(
             subject='Код подтверждения',
             message=f'Ваш код: {confirmation_code}',
